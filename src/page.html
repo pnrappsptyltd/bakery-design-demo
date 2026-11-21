@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bakery design demo</title>
+<meta name="description" content="A playable design demo of a bakery maths game for young children: fill a tray of ten. Not the app; no accounts and no data collection.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap">
+<style>
+/* Layout: a phone-sized stage (390 x 844 design units, the size of the review boards) scaled to fit the window,
+   with the demo controls beside it on wide screens and in a sheet behind the gear on phones.
+   Single theme on purpose: the bakery's own cream-and-ink world, as in the app. */
+:root {
+  --table: #EFE9DF; --cream: #FAF7F2; --card: #FFFFFF; --ink: #2B2B2B; --muted: #6F6A62; --line: #E3DDD3; --slot: #F4EEE5;
+  --lemon: #FFD93B; --tangerine: #FF8A3D; --leaf: #58C27D; --sky: #BDE6FF; --night: #28315F; --rose: #FF7A9A; --focus: #1F5FB8;
+  --font: Nunito, ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+html { height: 100%; box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { height: 100%; margin: 0; background: var(--table); color: var(--ink); font-family: var(--font); box-sizing: border-box;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  overflow: hidden; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button { font-family: var(--font); color: var(--ink); }
+button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
+img { max-width: none; }
+[hidden] { display: none !important; }
+
+.wrap { height: 100%; display: flex; align-items: center; justify-content: center; gap: 40px; }
+.viewport { position: relative; flex: 0 0 auto; }
+.stage { position: absolute; left: 0; top: 0; width: 390px; height: 844px; transform-origin: 0 0; overflow: hidden;
+  border-radius: 44px; background: var(--cream); box-shadow: 0 0 0 2px #D8CFC2; }
+.screen { position: absolute; inset: 0; animation: enter .22s ease both; }
+@keyframes enter { from { opacity: 0; } }
+
+/* Shared controls */
+.bigbtn { font: 900 26px/1 var(--font); background: var(--lemon); border: 5px solid var(--ink); border-radius: 28px;
+  box-shadow: 0 6px 0 var(--ink); cursor: pointer; transition: transform .08s, box-shadow .08s; }
+.bigbtn:active, .bigbtn.pressed { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink); }
+.iconbtn { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0; background: var(--card);
+  border: 3px solid var(--ink); border-radius: 16px; box-sizing: border-box; cursor: pointer; }
+
+/* Opening */
+.opening { background: var(--sky); }
+.floor { position: absolute; left: 0; top: 660px; }
+.scene { position: absolute; left: 0; top: 108px; }
+.scene.lit { opacity: 0; transition: opacity .45s ease; }
+.scene.lit.on { opacity: 1; }
+.baker { position: absolute; left: 14px; top: 670px; }
+.bigbtn.open { position: absolute; left: 110px; top: 704px; width: 266px; height: 88px; }
+.iconbtn.gear { right: 16px; top: 44px; width: 56px; height: 56px; }
+
+/* Game */
+.pdots { position: absolute; left: 20px; top: 63px; display: flex; gap: 8px; }
+.pdots span { width: 14px; height: 14px; border-radius: 50%; background: var(--line); }
+.pdots .now { background: var(--tangerine); }
+.pdots .done { background: var(--leaf); }
+.iconbtn.close { right: 16px; top: 44px; width: 52px; height: 52px; }
+.cust { position: absolute; left: 16px; top: 116px; }
+.bubble { position: absolute; left: 116px; top: 112px; width: 178px; height: 96px; box-sizing: border-box; background: var(--card);
+  border: 3px solid var(--ink); border-radius: 24px; display: flex; align-items: center; justify-content: center; gap: 14px; }
+.bubble .tail { position: absolute; left: -10px; top: 37px; width: 16px; height: 16px; background: var(--card);
+  border-left: 3px solid var(--ink); border-bottom: 3px solid var(--ink); transform: rotate(45deg); }
+.bubble .num { font: 900 44px/1 var(--font); }
+.bdots { width: 76px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.bdots span { display: block; height: 12px; border-radius: 50%; background: var(--tangerine); transition: background .3s; }
+.bdots.ok span { background: var(--leaf); }
+.speak { position: absolute; right: 16px; top: 128px; width: 64px; height: 64px; box-sizing: border-box; border-radius: 50%;
+  background: var(--lemon); border: 4px solid var(--ink); padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.speak:active { transform: scale(.94); }
+.tray { position: absolute; left: 16px; width: 358px; box-sizing: border-box; background: var(--card); border: 3px solid var(--ink);
+  border-radius: 22px; padding: 10px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.slot { height: 60px; border-radius: 14px; background: var(--slot); display: flex; align-items: center; justify-content: center; }
+.ring { width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 3px dashed #CFC6B8; }
+.settle { animation: settle .12s ease-out; }
+@keyframes settle { from { transform: scale(1.14); } }
+.doorclip { position: absolute; left: 16px; width: 358px; border-radius: 22px; overflow: hidden; pointer-events: none; z-index: 2; }
+.door { position: absolute; inset: 0; background: var(--ink); display: flex; align-items: center; justify-content: center;
+  transform: translateY(-104%); transition: transform .48s cubic-bezier(.3, .7, .3, 1); }
+.doorclip.shut .door { transform: none; }
+.door .strip { position: absolute; left: 28px; right: 28px; top: 14px; height: 6px; border-radius: 3px; background: var(--lemon); }
+.dpanel { margin-top: 12px; padding: 12px 16px; border: 4px solid var(--lemon); border-radius: 16px; background: #3A2A10;
+  display: flex; align-items: center; gap: 16px; }
+.dnum { font: 900 46px/1 var(--font); color: var(--lemon); min-width: 28px; text-align: center; }
+.ddots { width: 106px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.ddots span { display: block; height: 17px; box-sizing: border-box; border-radius: 50%; border: 2px solid #8A7A5C; }
+.door.five .strip { top: 8px; }
+.door.five .dpanel { margin-top: 8px; padding: 6px 12px; }
+.door.five .dnum { font-size: 36px; }
+.rack { position: absolute; left: 16px; top: 622px; width: 358px; height: 108px; box-sizing: border-box; background: var(--card);
+  border: 3px solid var(--ink); border-radius: 22px; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.rack.two { height: 150px; display: grid; grid-template-columns: repeat(5, 64px); grid-auto-rows: 62px; justify-content: center; align-content: center; }
+.rk { width: 64px; height: 62px; border: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; touch-action: none; border-radius: 14px; }
+.rk:disabled { cursor: default; }
+.rk.lifting img { opacity: .3; }
+.ghost { width: 46px; height: 46px; box-sizing: border-box; border-radius: 50%; border: 3px dashed var(--line); }
+.rk.bounce img { animation: bounce 1.2s ease-in-out infinite; }
+@keyframes bounce { 0%, 50%, 100% { transform: none; } 25% { transform: translateY(-14px); } }
+.numpad { position: absolute; left: 16px; top: 616px; width: 358px; height: 166px; box-sizing: border-box; background: var(--card);
+  border: 3px solid var(--ink); border-radius: 22px; padding: 12px 0; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 8px; }
+.numpad.five { height: 96px; }
+.nb { width: 62px; height: 62px; box-sizing: border-box; border-radius: 16px; background: var(--card); border: 3px solid var(--ink); padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; }
+.nb b { font: 900 22px/1 var(--font); }
+.nb:active { transform: translateY(2px); }
+.nb.dim { opacity: .35; }
+.md { width: 40px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+.md span { display: block; height: 6px; border-radius: 50%; background: var(--line); }
+.flyer, .dragghost { position: absolute; z-index: 6; pointer-events: none; }
+.dragghost { transform: scale(1.12); filter: drop-shadow(0 6px 0 rgba(43, 43, 43, .18)); }
+.tag { position: absolute; z-index: 4; min-width: 44px; height: 34px; box-sizing: border-box; padding: 0 10px; border-radius: 17px;
+  border: 3px solid var(--ink); font: 900 22px/28px var(--font); text-align: center; animation: tagin .25s cubic-bezier(.2, .9, .3, 1.3) both; }
+@keyframes tagin { from { transform: scale(.4); opacity: 0; } }
+.tag.out { transition: opacity .25s; opacity: 0; }
+.burst { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; animation: burst .9s ease-out both; }
+@keyframes burst { 0% { opacity: 0; transform: scale(.94); } 20% { opacity: 1; } 100% { opacity: 0; transform: scale(1.03); } }
+.hintlayer { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.lid { position: absolute; left: 16px; width: 358px; z-index: 5; box-sizing: border-box; background: #FFFDF8; border: 3px solid var(--ink);
+  border-radius: 22px; overflow: hidden; }
+.lid .band { height: 30px; border-bottom: 3px solid var(--ink); background: repeating-linear-gradient(90deg, var(--rose) 0 26px, #FFFFFF 26px 40px); }
+.lid .win { position: absolute; left: 50%; top: calc(50% + 16px); transform: translate(-50%, -50%); width: 86px; height: 86px; box-sizing: border-box;
+  border-radius: 50%; background: #FFFFFF; border: 3px solid var(--ink); display: flex; align-items: center; justify-content: center; }
+.lid .win img + img { margin-left: -8px; margin-top: 14px; }
+.lid .sticker { position: absolute; right: 18px; bottom: 12px; width: 46px; height: 46px; box-sizing: border-box; border-radius: 50%;
+  background: var(--lemon); border: 3px solid var(--ink); font: 900 20px/40px var(--font); text-align: center; }
+.lid.five .band { height: 22px; }
+.lid.five .win { width: 52px; height: 52px; top: calc(50% + 12px); }
+.lid.five .sticker { width: 38px; height: 38px; line-height: 32px; bottom: 8px; font-size: 17px; }
+.ask { position: absolute; inset: 0; z-index: 20; background: rgba(43, 43, 43, .35); display: flex; align-items: center; justify-content: center; animation: enter .15s ease both; }
+.askcard { width: 300px; box-sizing: border-box; padding: 24px 22px; background: var(--card); border: 3px solid var(--ink); border-radius: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.askcard p { margin: 0 0 4px; font: 900 24px/1.2 var(--font); text-align: center; }
+.bigbtn.keep { width: 240px; height: 72px; font-size: 24px; }
+.plain { font: 800 18px/1 var(--font); background: transparent; border: 0; color: var(--muted); padding: 12px 20px; cursor: pointer; text-decoration: underline; }
+
+/* Closing time */
+.closing { background: var(--night); }
+.glow { position: absolute; left: 45px; top: 250px; width: 300px; height: 300px; border-radius: 50%; background: #34407A; }
+.closing .sky { position: absolute; left: 0; top: 60px; }
+.closing .awning { position: absolute; left: 0; top: 34px; }
+.closing .cheer { position: absolute; left: 131px; top: 300px; }
+.counter { position: absolute; left: 0; top: 486px; width: 390px; height: 358px; background: #FFC4D6; border-top: 3px solid var(--ink); }
+.counterline { position: absolute; left: 0; top: 540px; width: 390px; height: 3px; background: var(--ink); opacity: .12; }
+.countertop { position: absolute; left: -6px; top: 468px; width: 402px; height: 18px; box-sizing: border-box; border-radius: 6px; background: #E0A464; border: 3px solid var(--ink); }
+.boxes { position: absolute; left: 23px; top: 409px; display: flex; gap: 6px; }
+.boxes img { animation: popin .35s cubic-bezier(.2, .9, .3, 1.3) both; }
+@keyframes popin { from { transform: translateY(14px) scale(.6); opacity: 0; } }
+.bigbtn.done { position: absolute; left: 85px; top: 712px; width: 220px; height: 84px; font-size: 28px; }
+
+/* Demo controls: a panel on wide screens, a sheet behind the gear everywhere */
+.panel { display: none; width: 340px; max-height: calc(100% - 24px); overflow: auto; box-sizing: border-box; padding: 24px 22px;
+  background: var(--card); border: 2px solid var(--line); border-radius: 22px; -webkit-user-select: text; user-select: text; }
+@media (min-width: 980px) { .panel { display: block; } }
+.ctl { display: flex; flex-direction: column; gap: 18px; }
+.ctl h1 { margin: 0; font: 900 26px/1.15 var(--font); text-wrap: balance; }
+.ctl .eyebrow { margin: -12px 0 0; font: 800 12px/1.4 var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.ctl p { margin: 0; font: 600 15px/1.5 var(--font); }
+.ctl .group { display: flex; flex-direction: column; gap: 8px; }
+.ctl .label { font: 800 12px/1.4 var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.ctl .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px; box-sizing: border-box; border-radius: 12px;
+  border: 2px solid var(--line); background: var(--card); font: 800 14px/1.2 var(--font); cursor: pointer; text-align: left; }
+.chip:hover { border-color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--lemon); border-color: var(--ink); }
+.chip img { width: 26px; height: 26px; flex: 0 0 auto; }
+.jumps { display: flex; flex-direction: column; gap: 6px; }
+.jumps .chip { width: 100%; }
+.jumps .chip small { margin-left: auto; font: 700 12px/1 var(--font); color: var(--muted); }
+.ctl ul { margin: 0; padding-left: 18px; font: 600 14px/1.5 var(--font); }
+.ctl .note { font: 600 13px/1.45 var(--font); color: var(--muted); }
+.sheet { position: fixed; inset: 0; z-index: 50; background: rgba(43, 43, 43, .42); display: flex; align-items: flex-end; justify-content: center; }
+.sheetcard { position: relative; width: min(560px, 100%); max-height: 88%; overflow: auto; box-sizing: border-box; background: var(--card);
+  border-radius: 24px 24px 0 0; padding: 22px max(20px, env(safe-area-inset-right, 0px)) max(22px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  -webkit-user-select: text; user-select: text; }
+.sheetclose { position: absolute; right: 16px; top: 16px; min-height: 40px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="viewport" id="viewport"><div class="stage" id="stage"></div></div>
+  <aside class="panel" id="panel" aria-label="Demo controls"></aside>
+</div>
+<div class="sheet" id="sheet" hidden>
+  <div class="sheetcard" role="dialog" aria-modal="true" aria-label="Demo controls">
+    <button class="chip sheetclose" id="sheetclose" type="button">Close</button>
+    <div id="sheetbody"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const ART = __ART__;
+  const U = {};
+  for (const k of Object.keys(ART)) U[k] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(ART[k]);
+
+  // ---------- the design's content ----------
+  // The cookie mix: one cookie per order. Soft icing = already in the tray; bold icing with sprinkles = added by the child.
+  const KINDS = [
+    { id: 'round', name: 'Round', soft: '#FFA6C9', bold: '#4F8EF0' },
+    { id: 'heart', name: 'Heart', soft: '#D4BFFF', bold: '#E5484D' },
+    { id: 'star', name: 'Star', soft: '#FFE066', bold: '#7B4A2E' },
+    { id: 'flower', name: 'Flower', soft: '#8FE3C8', bold: '#8B5CF6' },
+    { id: 'butterfly', name: 'Butterfly', soft: '#A8D8FF', bold: '#E0457B' },
+  ];
+  // One shift that shows every stage. In the app the engine picks the pairs and stages; this demo fixes them.
+  const PLANS = {
+    10: [{ a: 6, stage: 'see' }, { a: 3, stage: 'see' }, { a: 8, stage: 'peek' }, { a: 5, stage: 'peek' }, { a: 7, stage: 'closed' }],
+    5: [{ a: 4, stage: 'see' }, { a: 3, stage: 'see' }, { a: 2, stage: 'peek' }, { a: 1, stage: 'peek' }, { a: 3, stage: 'closed' }],
+  };
+  const STAGE_LABEL = { see: 'see', peek: 'peek', closed: 'closed door' };
+  const CUSTOMERS = ['ava', 'leo', 'mia', 'noah', 'zoe'];
+  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  const W = (n) => WORDS[n] || String(n);
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const PEEK_MS = 2500, HINT_MS = 8000, IDLE_MS = 10000, SPEECH_CAP_MS = 4000;
+  const reduceMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  // ---------- per-viewer conveniences (this browser only) ----------
+  const KEY = 'bakery-design-demo';
+  const prefs = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
+  const S = { total: prefs.total === 5 ? 5 : 10, sound: prefs.sound !== false, windowFull: !!prefs.windowFull, run: 0 };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ total: S.total, sound: S.sound, windowFull: S.windowFull })); } catch (e) { /* storage blocked */ } };
+
+  // ---------- sound and voice (the same approach as the app's audio.js) ----------
+  let actx = null;
+  function tone(freq, dur = 0.18, type = 'sine', gain = 0.2, delay = 0) {
+    if (!S.sound) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + delay;
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) { /* no audio */ }
+  }
+  const sfx = {
+    pop: (i) => tone(380 + i * 28, 0.14),
+    success: () => { tone(523, 0.14); tone(659, 0.14, 'sine', 0.2, 0.11); tone(784, 0.22, 'sine', 0.2, 0.22); },
+    soft: () => tone(330, 0.12, 'triangle', 0.12),
+    door: () => tone(180, 0.2, 'triangle', 0.15),
+    bell: () => { tone(1318, 0.45, 'sine', 0.12); tone(1760, 0.6, 'sine', 0.09, 0.13); },
+  };
+  const NOVELTY = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Kathy|Ralph|Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley)\b/i;
+  const hasSpeech = 'speechSynthesis' in window;
+  function pickVoice() {
+    const vs = speechSynthesis.getVoices().filter((v) => /^en/i.test(v.lang) && !NOVELTY.test(v.name));
+    return vs.find((v) => /en[-_]AU/i.test(v.lang)) || vs.find((v) => /en[-_]GB/i.test(v.lang)) || vs[0] || null;
+  }
+  let lastUtterance = null;
+  function speak(text) {
+    if (!S.sound || !hasSpeech) return Promise.resolve();
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice(); if (v) u.voice = v;
+      u.rate = 0.92; u.pitch = 1.05;
+      const ended = new Promise((r) => { u.onend = r; u.onerror = r; });
+      lastUtterance = u; // Chrome can drop the end event of an utterance that was garbage-collected
+      speechSynthesis.speak(u);
+      return ended;
+    } catch (e) { return Promise.resolve(); }
+  }
+  function hush() { try { if (hasSpeech) speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
+  function unlockSpeech() { // iOS speaks only after a tap has started speech once
+    if (!S.sound || !hasSpeech) return;
+    try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
+  }
+  if (hasSpeech) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; } catch (e) { /* ignore */ } }
+
+  // ---------- helpers ----------
+  const stage = document.getElementById('stage');
+  const wrap = document.getElementById('wrap');
+  const viewport = document.getElementById('viewport');
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === 'class') n.className = v;
+      else if (k === 'style') n.style.cssText = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const c of kids.flat()) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+    return n;
+  }
+  const pic = (key, w, h, cls, alt) => el('img', { src: U[key], width: w, height: h || w, alt: alt || '', class: cls || '', draggable: 'false' });
+  let scale = 1;
+  function fit() {
+    const wide = window.matchMedia('(min-width: 980px)').matches;
+    const availW = wrap.clientWidth - (wide ? 380 : 0);
+    const availH = wrap.clientHeight - 24;
+    scale = Math.max(0.3, Math.min(availW / 390, availH / 844, 1.1));
+    viewport.style.width = 390 * scale + 'px';
+    viewport.style.height = 844 * scale + 'px';
+    stage.style.transform = 'scale(' + scale + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+  const rectIn = (node) => { const s = stage.getBoundingClientRect(), r = node.getBoundingClientRect(); return { x: (r.left - s.left) / scale, y: (r.top - s.top) / scale, w: r.width / scale, h: r.height / scale }; };
+  const toStage = (cx, cy) => { const s = stage.getBoundingClientRect(); return { x: (cx - s.left) / scale, y: (cy - s.top) / scale }; };
+  const timers = new Set();
+  function later(fn, ms) { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; }
+  function clearLater() { timers.forEach(clearTimeout); timers.clear(); }
+  const wait = (ms) => new Promise((r) => later(r, ms));
+  function show(node) { stage.replaceChildren(node); }
+  function begin() { S.run += 1; clearLater(); hush(); closeSheet(); return S.run; }
+
+  // ---------- opening: the shop front ----------
+  function opening() {
+    begin();
+    const full = S.windowFull;
+    const scr = el('div', { class: 'screen opening' });
+    const floor = el('div', { class: 'floor' });
+    floor.innerHTML = '<svg width="390" height="184" viewBox="0 0 390 184" aria-hidden="true"><defs><pattern id="tiles" width="92" height="120" y="-6" patternUnits="userSpaceOnUse"><path d="M0 1 H92 M0 61 H92 M58 0 V60 M14 60 V120" fill="none" stroke="#2B2B2B" stroke-opacity="0.12" stroke-width="2"/></pattern></defs><rect width="390" height="184" fill="#F2E2D2"/><rect width="390" height="184" fill="url(#tiles)"/></svg>';
+    const lit = pic(full ? 'shopOpenMix' : 'shopOpenEmpty', 390, 562, 'scene lit');
+    const btn = el('button', { class: 'bigbtn open', type: 'button' }, 'Open the bakery');
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true; btn.classList.add('pressed');
+      const run = S.run;
+      sfx.bell(); unlockSpeech();
+      lit.classList.add('on');
+      await wait(reduceMotion() ? 150 : 700);
+      if (run === S.run) shift(0);
+    });
+    scr.append(floor,
+      pic(full ? 'shopMix' : 'shopEmpty', 390, 562, 'scene', full ? 'The shop front by day, with five cookie boxes in the window' : 'The shop front by day, with empty window shelves'),
+      lit, pic('bakerWave', 84, 126, 'baker', 'The baker waving'), btn,
+      el('button', { class: 'iconbtn gear', type: 'button', 'aria-label': 'Grown-ups: demo settings', onclick: openSheet }, pic('gear', 34)));
+    show(scr);
+  }
+
+  // ---------- a shift of five orders ----------
+  function shift(from) {
+    const run = begin();
+    const plan = PLANS[S.total];
+    (async () => {
+      for (let i = from; i < plan.length; i++) {
+        const finished = await order(i, plan[i], run);
+        if (!finished || run !== S.run) return;
+      }
+      closing();
+    })();
+  }
+
+  function order(i, o, run) {
+    return new Promise((resolve) => {
+      const T = S.total, kind = KINDS[i], a = o.a, b = T - a, who = CUSTOMERS[i];
+      const soft = kind.id + 'Soft', bold = kind.id + 'Bold';
+      const rows = T / 5, trayH = 26 + rows * 60 + (rows - 1) * 8, trayTop = 602 - trayH;
+      let count = a, reserved = a, done = false, mode = 'start', hintTimer = 0, idleTimer = 0, hintLayer = null;
+      const seeLine = a === 1 ? `There is one cookie. Can you make ${W(T)}?` : `There are ${W(a)} cookies. Can you make ${W(T)}?`;
+      const ovenLine = `${cap(W(a))} ${a === 1 ? 'is' : 'are'} in the oven. How many more make ${W(T)}?`;
+      let line = seeLine;
+
+      const scr = el('div', { class: 'screen game' });
+      const pd = el('div', { class: 'pdots', 'aria-hidden': 'true' });
+      for (let k = 0; k < 5; k++) pd.append(el('span', { class: k < i ? 'done' : k === i ? 'now' : '' }));
+      const face = pic(who + 'Warm', 88, 88, 'cust', 'The customer');
+      const bdots = el('div', { class: 'bdots' });
+      for (let k = 0; k < T; k++) bdots.append(el('span'));
+      const bubble = el('div', { class: 'bubble', role: 'img', 'aria-label': `The customer wants ${T}` }, el('span', { class: 'tail' }), el('span', { class: 'num' }, String(T)), bdots);
+      const tray = el('div', { class: 'tray', style: `top:${trayTop}px`, 'aria-label': 'The tray' });
+      const slots = [];
+      for (let k = 0; k < T; k++) {
+        const s = el('div', { class: 'slot' }, k < a ? pic(soft, 50) : el('span', { class: 'ring' }));
+        slots.push(s); tray.append(s);
+      }
+      const ddots = el('div', { class: 'ddots' });
+      for (let k = 0; k < T; k++) ddots.append(el('span', { style: k < a ? `background:${kind.soft};border-color:#2B2B2B` : '' }));
+      const doorClip = el('div', { class: 'doorclip' + (o.stage === 'closed' ? ' shut' : ''), style: `top:${trayTop}px;height:${trayH}px` },
+        el('div', { class: 'door' + (T === 5 ? ' five' : '') }, el('span', { class: 'strip' }), el('div', { class: 'dpanel' }, el('span', { class: 'dnum' }, String(a)), ddots)));
+      const rack = el('div', { class: 'rack', hidden: true, 'aria-label': 'Cookies to add' });
+      const pad = el('div', { class: 'numpad' + (T === 5 ? ' five' : ''), hidden: true, 'aria-label': 'How many more?' });
+      scr.append(pd,
+        el('button', { class: 'iconbtn close', type: 'button', 'aria-label': 'Close the bakery', onclick: askClose }, pic('close', 28)),
+        face, bubble,
+        el('button', { class: 'speak', type: 'button', 'aria-label': 'Say the order again', onclick: () => speak(line) }, pic('speaker', 38)),
+        tray, doorClip, rack, pad);
+      show(scr);
+
+      const alive = () => run === S.run;
+      function noteAction() { clearTimeout(hintTimer); clearTimeout(idleTimer); hideHint(); }
+
+      // See stage: exactly the cookies needed, one row up to five, two rows for six to nine.
+      function showRack() {
+        mode = 'cookies'; pad.hidden = true; rack.hidden = false;
+        rack.className = 'rack' + (b > 5 ? ' two' : '');
+        rack.replaceChildren();
+        for (let k = 0; k < b; k++) {
+          const btn = el('button', { class: 'rk', type: 'button', 'aria-label': `${kind.name} cookie` }, pic(bold, 58));
+          btn.addEventListener('click', () => { if (btn.dragged) { btn.dragged = false; return; } take(btn); });
+          drag(btn);
+          rack.append(btn);
+        }
+      }
+      function take(btn, from) {
+        if (done || mode !== 'cookies' || btn.disabled || reserved >= T) return;
+        noteAction();
+        const k = reserved++;
+        const src = from || rectIn(btn.querySelector('img'));
+        btn.disabled = true; btn.setAttribute('aria-label', 'Used');
+        btn.replaceChildren(el('span', { class: 'ghost' }));
+        fly(bold, src, slots[k], () => land(k));
+      }
+      function land(k) {
+        if (!alive()) return;
+        slots[k].replaceChildren(pic(bold, 50, 50, 'settle'));
+        count += 1; sfx.pop(count);
+        if (count >= T) { complete(); return; }
+        speak(W(count));
+        if (mode === 'cookies') armHint();
+      }
+      function fly(key, src, slot, cb) {
+        if (reduceMotion()) { cb(); return; }
+        const d = rectIn(slot), size = 50;
+        const sx = src.x + src.w / 2 - size / 2, sy = src.y + src.h / 2 - size / 2;
+        const dx = d.x + d.w / 2 - size / 2 - sx, dy = d.y + d.h / 2 - size / 2 - sy;
+        const f = pic(key, size, size, 'flyer');
+        f.style.left = sx + 'px'; f.style.top = sy + 'px';
+        scr.append(f);
+        const anim = f.animate([
+          { transform: 'translate(0px, 0px) scale(1.16)' },
+          { transform: `translate(${dx / 2}px, ${dy / 2 - 34}px) scale(1.12)`, offset: 0.5 },
+          { transform: `translate(${dx}px, ${dy}px) scale(1)` },
+        ], { duration: 280, easing: 'cubic-bezier(.3, .7, .4, 1)' });
+        anim.onfinish = () => { f.remove(); cb(); };
+      }
+      function drag(btn) {
+        let start = null, ghost = null;
+        btn.addEventListener('pointerdown', (e) => {
+          if (!e.isPrimary || btn.disabled || done) return;
+          start = { x: e.clientX, y: e.clientY }; btn.dragged = false;
+          try { btn.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        });
+        btn.addEventListener('pointermove', (e) => {
+          if (!start) return;
+          if (!ghost && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) {
+            ghost = pic(bold, 58, 58, 'dragghost'); scr.append(ghost); btn.classList.add('lifting');
+          }
+          if (ghost) { const p = toStage(e.clientX, e.clientY); ghost.style.left = (p.x - 29) + 'px'; ghost.style.top = (p.y - 29) + 'px'; }
+        });
+        const end = (e, cancelled) => {
+          if (!start) return;
+          start = null;
+          if (!ghost) return;
+          const p = toStage(e.clientX, e.clientY);
+          ghost.remove(); ghost = null; btn.classList.remove('lifting'); btn.dragged = true;
+          const t = rectIn(tray);
+          if (!cancelled && p.x > t.x - 10 && p.x < t.x + t.w + 10 && p.y > t.y - 20 && p.y < t.y + t.h + 20) take(btn, { x: p.x - 29, y: p.y - 29, w: 58, h: 58 });
+        };
+        btn.addEventListener('pointerup', (e) => end(e, false));
+        btn.addEventListener('pointercancel', (e) => end(e, true));
+      }
+
+      // Hints: on the first order one cookie bounces and a dotted path points at the first empty slot until the first tap;
+      // later, a bounce returns after 8 seconds without a tap.
+      function showHint(withPath) {
+        const btn = rack.querySelector('.rk:not(:disabled)');
+        if (!btn || done) return;
+        btn.classList.add('bounce');
+        if (!withPath || hintLayer || reserved >= T) return;
+        const r = rectIn(btn), t = rectIn(slots[reserved]);
+        const x1 = r.x + r.w / 2, y1 = r.y + 2, x2 = t.x + t.w / 2, y2 = t.y + t.h + 6;
+        hintLayer = el('div', { class: 'hintlayer' });
+        hintLayer.innerHTML = `<svg width="390" height="844" viewBox="0 0 390 844" aria-hidden="true"><path d="M${x1} ${y1} C ${x1} ${y1 - 42}, ${x2} ${y2 + 42}, ${x2} ${y2 + 4}" fill="none" stroke="${kind.bold}" stroke-width="3.5" stroke-dasharray="1 7" stroke-linecap="round"/><path d="M${x2 - 7} ${y2 + 12} L${x2} ${y2 + 2} L${x2 + 7} ${y2 + 12}" fill="none" stroke="${kind.bold}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        scr.append(hintLayer);
+      }
+      function hideHint() {
+        rack.querySelectorAll('.bounce').forEach((n) => n.classList.remove('bounce'));
+        if (hintLayer) { hintLayer.remove(); hintLayer = null; }
+      }
+      function armHint() { clearTimeout(hintTimer); hintTimer = later(() => { if (!done && mode === 'cookies') { showHint(false); armHint(); } }, HINT_MS); }
+      function armIdle() { clearTimeout(idleTimer); idleTimer = later(() => { if (!done && mode === 'numbers') { speak(line); armIdle(); } }, IDLE_MS); }
+
+      // Oven stages: the door shows the hidden cookies as dots in the soft colour; the buttons use the bold colour.
+      const closeDoor = async () => { doorClip.classList.add('shut'); sfx.door(); await wait(reduceMotion() ? 0 : 480); };
+      const openDoor = async () => { doorClip.classList.remove('shut'); sfx.door(); await wait(reduceMotion() ? 0 : 480); };
+      function showNumbers() {
+        mode = 'numbers'; rack.hidden = true; pad.hidden = false; pad.replaceChildren();
+        for (let n = 1; n < T; n++) {
+          const mini = el('span', { class: 'md' });
+          for (let k = 0; k < T; k++) mini.append(el('span', { style: k < n ? `background:${kind.bold}` : '' }));
+          const btn = el('button', { class: 'nb', type: 'button', 'aria-label': `${n} more` }, el('b', null, String(n)), mini);
+          btn.addEventListener('click', () => answer(n, btn));
+          pad.append(btn);
+        }
+      }
+      async function answer(n, btn) {
+        if (done || mode !== 'numbers') return;
+        noteAction();
+        mode = 'locked';
+        if (n === b) {
+          sfx.success();
+          await openDoor(); if (!alive()) return;
+          const src = rectIn(btn);
+          for (let k = 0; k < n; k++) {
+            const idx = reserved++;
+            fly(bold, src, slots[idx], () => land(idx));
+            await wait(reduceMotion() ? 0 : 110); if (!alive() || done) return;
+          }
+        } else {
+          // No wrong sound: the door opens and the child counts on, as the app does today.
+          btn.classList.add('dim'); btn.disabled = true; sfx.soft();
+          line = `Let's look. ${cap(W(a))} in the tray. Count on.`;
+          speak(line);
+          await openDoor(); if (!alive()) return;
+          showRack(); armHint();
+        }
+      }
+
+      // Order done: the parts get their numbers, the sentence names them, a lid closes the tray into a box.
+      async function complete() {
+        if (done) return;
+        done = true; mode = 'done'; noteAction();
+        face.src = U[who + 'Happy'];
+        bdots.classList.add('ok');
+        pd.children[i].className = 'done';
+        sfx.success(); burst(); tags();
+        const spoken = speak(`${cap(W(a))} and ${W(b)} make ${W(T)}!`);
+        await Promise.all([wait(reduceMotion() ? 900 : 1500), Promise.race([spoken, wait(SPEECH_CAP_MS)])]);
+        if (!alive()) return;
+        await lid();
+        if (alive()) resolve(true);
+      }
+      function tags() {
+        const rs = slots.map(rectIn);
+        const top = Math.min(...rs.map((q) => q.y)), bottom = Math.max(...rs.map((q) => q.y));
+        const centre = (list) => list.reduce((s, q) => s + q.x + q.w / 2, 0) / list.length;
+        const softTop = rs.slice(0, a).filter((q) => Math.abs(q.y - top) < 2);
+        const boldList = rs.slice(a);
+        const boldBottom = boldList.filter((q) => Math.abs(q.y - bottom) < 2);
+        const sx = centre(softTop.length ? softTop : rs.slice(0, a)), bx = centre(boldBottom.length ? boldBottom : boldList);
+        scr.append(
+          el('span', { class: 'tag', style: `background:${kind.soft};left:${sx - 22}px;top:${trayTop - 17}px` }, String(a)),
+          el('span', { class: 'tag', style: `background:${kind.bold};color:#FFFFFF;left:${bx - 22}px;top:${trayTop + trayH - 17}px` }, String(b)));
+      }
+      function burst() {
+        const n = el('div', { class: 'burst', style: `transform-origin:195px ${trayTop}px` });
+        const y = trayTop - 448;
+        n.innerHTML = `<svg width="390" height="844" viewBox="0 0 390 844" aria-hidden="true"><g transform="translate(0 ${y})" stroke-width="4" stroke-linecap="round"><path d="M22 430 l-8 -8" stroke="#FF7A9A"/><path d="M70 418 l-2 -11" stroke="#FFD93B"/><path d="M120 424 l3 -10" stroke="#58C27D"/><path d="M262 420 l4 -11" stroke="#5AB0FF"/><path d="M322 426 l7 -9" stroke="#FF7A9A"/><path d="M370 440 l9 -6" stroke="#FFD93B"/><path d="M381 520 l8 0" stroke="#58C27D"/><path d="M9 522 l-8 0" stroke="#5AB0FF"/></g></svg>`;
+        scr.append(n);
+      }
+      async function lid() {
+        const box = el('div', { class: 'lid' + (T === 5 ? ' five' : ''), style: `top:${trayTop}px;height:${trayH}px`, role: 'img', 'aria-label': `A box of ${T}` },
+          el('div', { class: 'band' }),
+          el('div', { class: 'win' }, pic(soft, T === 5 ? 24 : 38), pic(bold, T === 5 ? 24 : 38)),
+          el('span', { class: 'sticker' }, String(T)));
+        scr.querySelectorAll('.tag').forEach((t) => t.classList.add('out'));
+        scr.append(box);
+        if (reduceMotion()) { await wait(500); return; }
+        box.animate([{ transform: 'translateY(-70px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: 400, easing: 'cubic-bezier(.2, .8, .3, 1.1)', fill: 'both' });
+        await wait(800); if (!alive()) return;
+        const c = rectIn(face), l = rectIn(box);
+        box.animate([{ transform: 'translate(0px, 0px) scale(1)', opacity: 1 }, { transform: `translate(${c.x + c.w / 2 - (l.x + l.w / 2)}px, ${c.y + c.h / 2 - (l.y + l.h / 2)}px) scale(.16)`, opacity: 0.15 }],
+          { duration: 420, easing: 'cubic-bezier(.5, 0, .8, .4)', fill: 'both' });
+        await wait(440);
+      }
+
+      // Ask before closing: the in-page version of the app's "Close the bakery for now?"
+      function askClose() {
+        const ov = el('div', { class: 'ask' });
+        const keep = el('button', { class: 'bigbtn keep', type: 'button', onclick: () => ov.remove() }, 'Keep baking');
+        ov.append(el('div', { class: 'askcard', role: 'dialog', 'aria-label': 'Close the bakery?' },
+          el('p', null, 'Close the bakery?'), keep,
+          el('button', { class: 'plain', type: 'button', onclick: () => { resolve(false); opening(); } }, 'Close')));
+        scr.append(ov); keep.focus();
+      }
+
+      // Start the order at its stage.
+      (async () => {
+        if (o.stage === 'see') {
+          line = seeLine; speak(seeLine); showRack();
+          if (i === 0) later(() => { if (!done && reserved === a) showHint(true); }, reduceMotion() ? 50 : 450);
+          else armHint();
+        } else if (o.stage === 'peek') {
+          mode = 'peeking'; line = 'Look at the tray.'; speak(line);
+          await wait(PEEK_MS); if (!alive() || done) return;
+          await closeDoor(); if (!alive()) return;
+          line = ovenLine; speak(ovenLine); showNumbers(); armIdle();
+        } else {
+          line = ovenLine; speak(ovenLine); showNumbers(); armIdle();
+        }
+      })();
+    });
+  }
+
+  // ---------- closing time ----------
+  function closing() {
+    begin();
+    const scr = el('div', { class: 'screen closing' });
+    const boxes = el('div', { class: 'boxes' });
+    KINDS.forEach((k, n) => { const b = pic('box' + cap(k.id), 64, 64, '', `The ${k.id} cookie box`); b.style.animationDelay = (n * 90) + 'ms'; boxes.append(b); });
+    scr.append(el('span', { class: 'glow' }), pic('nightSky', 390, 260, 'sky'), pic('awning', 390, 100, 'awning'), pic('bakerCheer', 128, 192, 'cheer', 'The baker cheering'),
+      el('div', { class: 'counter' }), el('div', { class: 'counterline' }), el('div', { class: 'countertop' }), boxes,
+      el('button', { class: 'bigbtn done', type: 'button', onclick: () => { S.windowFull = true; save(); opening(); } }, 'Done'));
+    show(scr);
+    S.windowFull = true; save();
+    speak('All five orders are ready! See you next time.');
+  }
+
+  // ---------- demo controls ----------
+  const panel = document.getElementById('panel');
+  const sheet = document.getElementById('sheet');
+  const sheetBody = document.getElementById('sheetbody');
+  function controls() {
+    const plan = PLANS[S.total];
+    const chip = (label, pressed, onclick, icon, hint) => el('button', { class: 'chip', type: 'button', 'aria-pressed': pressed == null ? null : String(pressed), onclick },
+      icon ? pic(icon, 26) : null, label, hint ? el('small', null, hint) : null);
+    const go = (fn) => () => { unlockSpeech(); fn(); };
+    return el('div', { class: 'ctl' },
+      el('h1', null, 'Bakery design demo'),
+      el('p', { class: 'eyebrow' }, 'A design demo, not the app'),
+      el('p', null, 'Play the proposed new look: every order brings a new cookie shape and icing. One shift of five orders shows every stage: two see orders, two peek orders and one with the oven door closed. Turn the sound up: the game speaks.'),
+      el('div', { class: 'group' }, el('span', { class: 'label' }, 'Practise'),
+        el('div', { class: 'row' },
+          chip('Make 10', S.total === 10, () => { S.total = 10; save(); refresh(); opening(); }),
+          chip('Make 5', S.total === 5, () => { S.total = 5; save(); refresh(); opening(); }))),
+      el('div', { class: 'group' }, el('span', { class: 'label' }, 'Jump to'),
+        el('div', { class: 'jumps' },
+          chip('Shop front', null, go(opening), 'bakerWave'),
+          plan.map((o, n) => chip(`Order ${n + 1} · ${KINDS[n].name}`, null, go(() => shift(n)), KINDS[n].id + 'Bold', `${o.a} + ${S.total - o.a} · ${STAGE_LABEL[o.stage]}`)),
+          chip('Closing time', null, go(closing), 'boxRound'))),
+      el('div', { class: 'group' }, el('span', { class: 'label' }, 'Sound'),
+        el('div', { class: 'row' }, chip(S.sound ? 'Sound on' : 'Sound off', S.sound, () => { S.sound = !S.sound; if (!S.sound) hush(); save(); refresh(); }))),
+      el('div', { class: 'group' }, el('span', { class: 'label' }, 'Shop window'),
+        el('div', { class: 'row' }, chip(S.windowFull ? 'Empty the window (first visit)' : 'Window is empty (first visit)', null, () => { S.windowFull = false; save(); refresh(); opening(); }))),
+      el('div', { class: 'group' }, el('span', { class: 'label' }, 'Not in this demo'),
+        el('ul', null,
+          el('li', null, 'Parent Corner and the grown-ups check (the gear opens these controls instead)'),
+          el('li', null, 'Split orders with two customers'),
+          el('li', null, 'Saving progress, and the engine choosing pairs and stages'),
+          el('li', null, 'Recorded voice: your browser’s own voice speaks'))),
+      el('p', { class: 'note' }, 'No accounts and no data collection. The only outside request is the Nunito font from Google Fonts. This browser remembers only the shop window, the sound setting and make 5 or 10.'));
+  }
+  function refresh() {
+    panel.replaceChildren(controls());
+    if (!sheet.hidden) sheetBody.replaceChildren(controls());
+  }
+  function openSheet() { sheetBody.replaceChildren(controls()); sheet.hidden = false; document.getElementById('sheetclose').focus(); }
+  function closeSheet() { if (!sheet.hidden) sheet.hidden = true; }
+  document.getElementById('sheetclose').addEventListener('click', closeSheet);
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+
+  refresh();
+  opening();
+})();
+</script>
+</body>
+</html>
